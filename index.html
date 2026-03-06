@@ -651,7 +651,8 @@
       // Use 'l' attribute (line name like "S5") if available, fallback to cat+n
       const lineAttr = dp.getAttribute('l') || '';
       const n = tl.getAttribute('n') || '';
-      const line = lineAttr ? (cat + lineAttr) : (cat + n);
+      // lineAttr already contains full line name (e.g. "S1"), so don't prepend cat again
+      const line = lineAttr ? lineAttr : (cat + n);
 
       const ptRaw = dp.getAttribute('pt'); // planned time YYMMDDHHMM
       if (!ptRaw) return;
