@@ -1,0 +1,794 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>S-Bahn München – Abfahrten</title>
+<link href="https://fonts.googleapis.com/css2?family=DIN+Condensed:wght@400;700&family=IBM+Plex+Mono:wght@300;400;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0e1a;
+    --panel: #111827;
+    --border: #1e2d40;
+    --accent: #0090d4;
+    --accent2: #00c896;
+    --warn: #f59e0b;
+    --danger: #ef4444;
+    --text: #e8edf5;
+    --muted: #4a5a6e;
+    --s5: #9b4dca;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'IBM Plex Mono', monospace;
+    min-height: 100vh;
+    padding: 0;
+    overflow-x: hidden;
+  }
+
+  /* Grid background */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(0,144,212,0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,144,212,0.04) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .container {
+    max-width: 680px;
+    margin: 0 auto;
+    padding: 24px 16px 40px;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* Header */
+  header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    margin-bottom: 28px;
+  }
+
+  .station-name {
+    font-family: 'DIN Condensed', sans-serif;
+    font-size: 2.2rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    color: var(--text);
+    line-height: 1;
+    text-transform: uppercase;
+  }
+
+  .station-name span {
+    display: block;
+    font-size: 0.85rem;
+    font-family: 'IBM Plex Mono', monospace;
+    font-weight: 300;
+    color: var(--muted);
+    letter-spacing: 0.12em;
+    margin-top: 4px;
+    text-transform: uppercase;
+  }
+
+  .live-badge {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(0,200,150,0.1);
+    border: 1px solid rgba(0,200,150,0.3);
+    border-radius: 4px;
+    padding: 4px 10px;
+    font-size: 0.65rem;
+    letter-spacing: 0.15em;
+    color: var(--accent2);
+    text-transform: uppercase;
+  }
+
+  .live-dot {
+    width: 6px;
+    height: 6px;
+    background: var(--accent2);
+    border-radius: 50%;
+    animation: pulse 1.5s infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.4; transform: scale(0.7); }
+  }
+
+  /* API Key Setup */
+  .setup-card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 28px;
+    margin-bottom: 24px;
+  }
+
+  .setup-card h2 {
+    font-family: 'DIN Condensed', sans-serif;
+    font-size: 1.3rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 6px;
+  }
+
+  .setup-card p {
+    font-size: 0.75rem;
+    color: var(--muted);
+    line-height: 1.6;
+    margin-bottom: 16px;
+  }
+
+  .setup-card a { color: var(--accent); text-decoration: none; }
+  .setup-card a:hover { text-decoration: underline; }
+
+  .input-row {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+
+  .input-group {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  label {
+    font-size: 0.65rem;
+    letter-spacing: 0.15em;
+    color: var(--muted);
+    text-transform: uppercase;
+  }
+
+  input[type="text"], input[type="password"], select {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.8rem;
+    padding: 10px 12px;
+    width: 100%;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  input[type="text"]:focus, input[type="password"]:focus, select:focus {
+    border-color: var(--accent);
+  }
+
+  select option { background: #1a2435; }
+
+  .btn {
+    background: var(--accent);
+    border: none;
+    border-radius: 6px;
+    color: white;
+    cursor: pointer;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.8rem;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    padding: 11px 20px;
+    text-transform: uppercase;
+    transition: background 0.2s, transform 0.1s;
+    width: 100%;
+  }
+
+  .btn:hover { background: #007ab8; }
+  .btn:active { transform: scale(0.98); }
+  .btn:disabled { background: var(--muted); cursor: not-allowed; }
+
+  /* Filter bar */
+  .filter-bar {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+  }
+
+  .filter-chip {
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    color: var(--muted);
+    cursor: pointer;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.7rem;
+    letter-spacing: 0.08em;
+    padding: 5px 14px;
+    transition: all 0.2s;
+    text-transform: uppercase;
+  }
+
+  .filter-chip:hover { border-color: var(--accent); color: var(--accent); }
+  .filter-chip.active {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: white;
+  }
+
+  .filter-chip.s5-chip.active { background: var(--s5); border-color: var(--s5); }
+
+  /* Departure table */
+  .table-header {
+    display: grid;
+    grid-template-columns: 60px 1fr 80px 70px;
+    padding: 6px 16px;
+    font-size: 0.6rem;
+    letter-spacing: 0.15em;
+    color: var(--muted);
+    text-transform: uppercase;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 4px;
+  }
+
+  .departure-list {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+
+  .departure-item {
+    display: grid;
+    grid-template-columns: 60px 1fr 80px 70px;
+    align-items: center;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 16px;
+    animation: fadeIn 0.3s ease;
+    transition: border-color 0.2s;
+  }
+
+  .departure-item:hover { border-color: rgba(0,144,212,0.3); }
+
+  .departure-item.s5-line { }
+  .departure-item.highlight { border-left: 3px solid var(--accent2); background: rgba(0,200,150,0.04); }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .line-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    font-family: 'DIN Condensed', sans-serif;
+    font-size: 0.95rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    padding: 2px 8px;
+    min-width: 38px;
+  }
+
+  .dest {
+    font-size: 0.85rem;
+    font-weight: 400;
+    padding: 0 8px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .time-col {
+    text-align: right;
+    padding-right: 8px;
+  }
+
+  .planned-time {
+    font-size: 1rem;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+  }
+
+  .delay-col { text-align: right; }
+
+  .delay-badge {
+    font-size: 0.7rem;
+    letter-spacing: 0.05em;
+    padding: 2px 7px;
+    border-radius: 3px;
+  }
+
+  .on-time { color: var(--accent2); background: rgba(0,200,150,0.1); }
+  .delayed { color: var(--warn); background: rgba(245,158,11,0.1); }
+  .very-delayed { color: var(--danger); background: rgba(239,68,68,0.1); }
+  .cancelled { color: var(--danger); background: rgba(239,68,68,0.1); text-decoration: line-through; }
+
+  /* Status bar */
+  .status-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+    padding: 8px 14px;
+    background: rgba(0,144,212,0.06);
+    border: 1px solid rgba(0,144,212,0.15);
+    border-radius: 8px;
+    font-size: 0.7rem;
+    color: var(--muted);
+  }
+
+  .refresh-btn {
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--muted);
+    cursor: pointer;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.65rem;
+    letter-spacing: 0.1em;
+    padding: 3px 10px;
+    text-transform: uppercase;
+    transition: all 0.2s;
+  }
+
+  .refresh-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* Loading */
+  .loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 48px;
+    color: var(--muted);
+    font-size: 0.75rem;
+    letter-spacing: 0.12em;
+  }
+
+  .spinner {
+    width: 20px;
+    height: 20px;
+    border: 2px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Error */
+  .error-msg {
+    background: rgba(239,68,68,0.08);
+    border: 1px solid rgba(239,68,68,0.25);
+    border-radius: 8px;
+    color: #fca5a5;
+    font-size: 0.75rem;
+    line-height: 1.6;
+    padding: 14px 18px;
+    margin-top: 16px;
+  }
+
+  /* Empty */
+  .empty {
+    text-align: center;
+    padding: 48px;
+    color: var(--muted);
+    font-size: 0.75rem;
+    letter-spacing: 0.1em;
+  }
+
+  /* Info note */
+  .info-note {
+    font-size: 0.68rem;
+    color: var(--muted);
+    line-height: 1.6;
+    margin-top: 20px;
+    padding: 12px 16px;
+    border-left: 2px solid var(--border);
+  }
+
+  .info-note a { color: var(--accent); text-decoration: none; }
+
+  /* Clock */
+  .clock {
+    font-size: 0.75rem;
+    color: var(--accent);
+    letter-spacing: 0.08em;
+  }
+
+  /* Responsive */
+  @media (max-width: 480px) {
+    .station-name { font-size: 1.7rem; }
+    .table-header, .departure-item {
+      grid-template-columns: 50px 1fr 70px 60px;
+    }
+  }
+
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <header>
+    <div>
+      <div class="station-name">
+        Donnersberger<br>Brücke
+        <span>München · Gleis 1–4</span>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;align-items:flex-end;gap:8px;">
+      <div class="live-badge"><div class="live-dot"></div>Live</div>
+      <div class="clock" id="clock">--:--:--</div>
+    </div>
+  </header>
+
+  <!-- Setup card -->
+  <div class="setup-card" id="setupCard">
+    <h2>API-Zugangsdaten</h2>
+    <p>
+      Für Echtzeit-Daten benötigst du einen kostenlosen API-Key von der Deutschen Bahn.<br>
+      Registrierung: <a href="https://developers.deutschebahn.com" target="_blank">developers.deutschebahn.com</a>
+      → Neue Anwendung → „Timetables" API abonnieren.
+    </p>
+    <div class="input-row">
+      <div class="input-group">
+        <label>DB Client ID</label>
+        <input type="text" id="clientId" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx">
+      </div>
+      <div class="input-group">
+        <label>DB API Key</label>
+        <input type="password" id="apiKey" placeholder="••••••••••••••••••••••••••••••••">
+      </div>
+    </div>
+    <button class="btn" onclick="startApp()">Verbinden &amp; Abfahrten laden</button>
+
+    <div class="info-note">
+      💡 Deine Zugangsdaten werden nur lokal im Browser gespeichert und nirgendwo übertragen außer direkt an die DB-API.
+    </div>
+  </div>
+
+  <!-- Main app -->
+  <div id="mainApp" class="hidden">
+
+    <div class="status-bar">
+      <span id="lastUpdate">Zuletzt aktualisiert: –</span>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <button class="refresh-btn" onclick="loadDepartures()">↻ Refresh</button>
+        <button class="refresh-btn" onclick="resetApp()" style="font-size:0.6rem;">⚙ API-Key</button>
+      </div>
+    </div>
+
+    <div class="filter-bar">
+      <button class="filter-chip active" data-filter="all" onclick="setFilter('all', this)">Alle</button>
+      <button class="filter-chip" data-filter="S1" onclick="setFilter('S1', this)">S1</button>
+      <button class="filter-chip" data-filter="S2" onclick="setFilter('S2', this)">S2</button>
+      <button class="filter-chip" data-filter="S3" onclick="setFilter('S3', this)">S3</button>
+      <button class="filter-chip" data-filter="S4" onclick="setFilter('S4', this)">S4</button>
+      <button class="filter-chip s5-chip" data-filter="S5" onclick="setFilter('S5', this)">S5</button>
+      <button class="filter-chip" data-filter="S6" onclick="setFilter('S6', this)">S6</button>
+      <button class="filter-chip" data-filter="S7" onclick="setFilter('S7', this)">S7</button>
+      <button class="filter-chip" data-filter="S8" onclick="setFilter('S8', this)">S8</button>
+      <button class="filter-chip" data-filter="S20" onclick="setFilter('S20', this)">S20</button>
+    </div>
+
+    <div class="table-header">
+      <div>Linie</div>
+      <div>Ziel</div>
+      <div style="text-align:right">Abfahrt</div>
+      <div style="text-align:right">Status</div>
+    </div>
+
+    <div id="departureList" class="departure-list"></div>
+    <div id="loadingIndicator" class="loading hidden">
+      <div class="spinner"></div>
+      <span>LADE DATEN ...</span>
+    </div>
+    <div id="errorMsg" class="error-msg hidden"></div>
+    <div id="emptyMsg" class="empty hidden">Keine Abfahrten gefunden.</div>
+  </div>
+
+</div>
+
+<script>
+  // ─── Clock ───────────────────────────────────────────────
+  function updateClock() {
+    const now = new Date();
+    document.getElementById('clock').textContent =
+      now.toLocaleTimeString('de-DE');
+  }
+  updateClock();
+  setInterval(updateClock, 1000);
+
+  // ─── State ───────────────────────────────────────────────
+  let allDepartures = [];
+  let activeFilter = 'all';
+  let autoRefreshTimer = null;
+
+  const STATION_EVA = '8004128'; // Donnersbergerbrücke
+
+  // S-Bahn line colors
+  const LINE_COLORS = {
+    S1: { bg: '#00a7e1', text: '#fff' },
+    S2: { bg: '#6cb33f', text: '#fff' },
+    S3: { bg: '#9c1f6e', text: '#fff' },
+    S4: { bg: '#e2001a', text: '#fff' },
+    S5: { bg: '#9b4dca', text: '#fff' },
+    S6: { bg: '#00975f', text: '#fff' },
+    S7: { bg: '#954b00', text: '#fff' },
+    S8: { bg: '#ff8000', text: '#000' },
+    S20: { bg: '#afafaf', text: '#000' },
+  };
+
+  // ─── Setup ───────────────────────────────────────────────
+  function startApp() {
+    const clientId = document.getElementById('clientId').value.trim();
+    const apiKey = document.getElementById('apiKey').value.trim();
+    if (!clientId || !apiKey) {
+      alert('Bitte beide Felder ausfüllen.');
+      return;
+    }
+    localStorage.setItem('db_client_id', clientId);
+    localStorage.setItem('db_api_key', apiKey);
+    showMain();
+  }
+
+  function resetApp() {
+    clearInterval(autoRefreshTimer);
+    document.getElementById('mainApp').classList.add('hidden');
+    document.getElementById('setupCard').classList.remove('hidden');
+  }
+
+  function showMain() {
+    document.getElementById('setupCard').classList.add('hidden');
+    document.getElementById('mainApp').classList.remove('hidden');
+    loadDepartures();
+    autoRefreshTimer = setInterval(loadDepartures, 60000);
+  }
+
+  // Auto-login if keys saved
+  window.addEventListener('load', () => {
+    const cid = localStorage.getItem('db_client_id');
+    const key = localStorage.getItem('db_api_key');
+    if (cid && key) {
+      document.getElementById('clientId').value = cid;
+      document.getElementById('apiKey').value = key;
+      showMain();
+    }
+  });
+
+  // ─── API ─────────────────────────────────────────────────
+  async function loadDepartures() {
+    const clientId = localStorage.getItem('db_client_id');
+    const apiKey = localStorage.getItem('db_api_key');
+    if (!clientId || !apiKey) return;
+
+    setLoading(true);
+    clearError();
+
+    const now = new Date();
+    const date = formatDate(now);   // YYMMDD
+    const hour = String(now.getHours()).padStart(2, '0');
+
+    try {
+      // Fetch plan (scheduled timetable)
+      const planUrl = `https://apis.deutschebahn.com/db-api-marketplace/apis/timetables/v1/plan/${STATION_EVA}/${date}/${hour}`;
+      const planResp = await fetch(planUrl, {
+        headers: {
+          'DB-Client-Id': clientId,
+          'DB-Api-Key': apiKey,
+          'Accept': 'application/xml'
+        }
+      });
+
+      if (!planResp.ok) {
+        const reason = planResp.headers.get('x-deny-reason') || planResp.statusText;
+        throw new Error(`API-Fehler ${planResp.status}: ${reason}`);
+      }
+
+      const planXml = await planResp.text();
+
+      // Fetch realtime changes
+      let rtXml = null;
+      try {
+        const rtResp = await fetch(
+          `https://apis.deutschebahn.com/db-api-marketplace/apis/timetables/v1/fchg/${STATION_EVA}`,
+          { headers: { 'DB-Client-Id': clientId, 'DB-Api-Key': apiKey, 'Accept': 'application/xml' } }
+        );
+        if (rtResp.ok) rtXml = await rtResp.text();
+      } catch(e) { /* realtime optional */ }
+
+      allDepartures = parseAndMerge(planXml, rtXml, now);
+      renderDepartures();
+      document.getElementById('lastUpdate').textContent =
+        'Zuletzt: ' + now.toLocaleTimeString('de-DE');
+
+    } catch(err) {
+      showError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function formatDate(d) {
+    const yy = String(d.getFullYear()).slice(-2);
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    return yy + mm + dd;
+  }
+
+  // ─── XML Parsing ─────────────────────────────────────────
+  function parseAndMerge(planXml, rtXml, now) {
+    const parser = new DOMParser();
+    const planDoc = parser.parseFromString(planXml, 'application/xml');
+
+    // Build realtime map
+    const rtMap = {};
+    if (rtXml) {
+      const rtDoc = parser.parseFromString(rtXml, 'application/xml');
+      rtDoc.querySelectorAll('s').forEach(s => {
+        const id = s.getAttribute('id');
+        rtMap[id] = s;
+      });
+    }
+
+    const stops = [];
+    planDoc.querySelectorAll('s').forEach(s => {
+      const id = s.getAttribute('id');
+      const tl = s.querySelector('tl');
+      if (!tl) return;
+
+      const cat = tl.getAttribute('c') || '';  // category e.g. S
+
+      const dp = s.querySelector('dp');
+      if (!dp) return; // only departures
+
+      // Use 'l' attribute (line name like "S5") if available, fallback to cat+n
+      const lineAttr = dp.getAttribute('l') || '';
+      const n = tl.getAttribute('n') || '';
+      // lineAttr already contains full line name (e.g. "S1"), so don't prepend cat again
+      const line = lineAttr ? lineAttr : (cat + n);
+
+      const ptRaw = dp.getAttribute('pt'); // planned time YYMMDDHHMM
+      if (!ptRaw) return;
+
+      const plannedTime = parseDBTime(ptRaw);
+      if (!plannedTime) return;
+
+      // Filter: only show next 90 mins
+      const diffMin = (plannedTime - now) / 60000;
+      if (diffMin < -2 || diffMin > 90) return;
+
+      let dest = '';
+      const ppth = dp.getAttribute('ppth');
+      if (ppth) {
+        const parts = ppth.split('|');
+        dest = parts[parts.length - 1];
+      }
+
+      let delayMin = 0;
+      let cancelled = false;
+
+      const rt = rtMap[id];
+      if (rt) {
+        const rdp = rt.querySelector('dp');
+        if (rdp) {
+          const cs = rdp.getAttribute('cs');
+          if (cs === 'c') { cancelled = true; }
+          const ctRaw = rdp.getAttribute('ct');
+          if (ctRaw) {
+            const changedTime = parseDBTime(ctRaw);
+            if (changedTime) delayMin = Math.round((changedTime - plannedTime) / 60000);
+          }
+        }
+      }
+
+      stops.push({ id, line, cat, dest, plannedTime, delayMin, cancelled });
+    });
+
+    stops.sort((a, b) => a.plannedTime - b.plannedTime);
+    return stops;
+  }
+
+  function parseDBTime(raw) {
+    // Format: YYMMDDHHmm
+    if (!raw || raw.length < 10) return null;
+    const yy = parseInt(raw.slice(0, 2));
+    const mo = parseInt(raw.slice(2, 4)) - 1;
+    const dd = parseInt(raw.slice(4, 6));
+    const hh = parseInt(raw.slice(6, 8));
+    const mm = parseInt(raw.slice(8, 10));
+    return new Date(2000 + yy, mo, dd, hh, mm);
+  }
+
+  // ─── Rendering ───────────────────────────────────────────
+  function setFilter(f, btn) {
+    activeFilter = f;
+    document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+    btn.classList.add('active');
+    renderDepartures();
+  }
+
+  function renderDepartures() {
+    const list = document.getElementById('departureList');
+    const empty = document.getElementById('emptyMsg');
+    list.innerHTML = '';
+
+    let items = allDepartures;
+    if (activeFilter !== 'all') {
+      items = items.filter(d => d.line === activeFilter);
+    }
+
+    if (items.length === 0) {
+      empty.classList.remove('hidden');
+      return;
+    }
+    empty.classList.add('hidden');
+
+    items.forEach(dep => {
+      const el = document.createElement('div');
+      el.className = 'departure-item';
+      if (dep.line === 'S5') el.classList.add('s5-line');
+
+      const colors = LINE_COLORS[dep.line] || { bg: '#555', text: '#fff' };
+      const timeStr = dep.plannedTime.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+      const now = new Date();
+      const inMin = Math.round((dep.plannedTime - now) / 60000);
+
+      let delayHtml = '';
+      if (dep.cancelled) {
+        delayHtml = `<span class="delay-badge cancelled">Ausfall</span>`;
+      } else if (dep.delayMin <= 0) {
+        delayHtml = `<span class="delay-badge on-time">Pünktl.</span>`;
+      } else if (dep.delayMin <= 5) {
+        delayHtml = `<span class="delay-badge delayed">+${dep.delayMin} min</span>`;
+      } else {
+        delayHtml = `<span class="delay-badge very-delayed">+${dep.delayMin} min</span>`;
+      }
+
+      const inMinLabel = inMin <= 0 ? '<span style="color:var(--accent2)">Jetzt</span>' :
+                         inMin === 1 ? '1 min' : `${inMin} min`;
+
+      el.innerHTML = `
+        <div>
+          <span class="line-badge" style="background:${colors.bg};color:${colors.text}">${dep.line}</span>
+        </div>
+        <div class="dest">${dep.dest || '–'}</div>
+        <div class="time-col">
+          <div class="planned-time">${timeStr}</div>
+          <div style="font-size:0.65rem;color:var(--muted);margin-top:1px">${inMinLabel}</div>
+        </div>
+        <div class="delay-col">${delayHtml}</div>
+      `;
+      list.appendChild(el);
+    });
+  }
+
+  // ─── UI helpers ──────────────────────────────────────────
+  function setLoading(on) {
+    document.getElementById('loadingIndicator').classList.toggle('hidden', !on);
+    document.getElementById('departureList').style.opacity = on ? '0.4' : '1';
+  }
+
+  function showError(msg) {
+    const el = document.getElementById('errorMsg');
+    el.textContent = '⚠ ' + msg;
+    el.classList.remove('hidden');
+  }
+
+  function clearError() {
+    document.getElementById('errorMsg').classList.add('hidden');
+  }
+</script>
+</body>
+</html>
