@@ -556,15 +556,11 @@
     autoRefreshTimer = setInterval(loadDepartures, 60000);
   }
 
-  // Auto-login if keys saved
+  // Hardcoded credentials – skip setup
   window.addEventListener('load', () => {
-    const cid = localStorage.getItem('db_client_id');
-    const key = localStorage.getItem('db_api_key');
-    if (cid && key) {
-      document.getElementById('clientId').value = cid;
-      document.getElementById('apiKey').value = key;
-      showMain();
-    }
+    localStorage.setItem('db_client_id', 'cde100682ea9fbc273ea253861415acf');
+    localStorage.setItem('db_api_key', '29cf9b3caddf9ad41fcc1185c94a3a4a');
+    showMain();
   });
 
   // ─── API ─────────────────────────────────────────────────
